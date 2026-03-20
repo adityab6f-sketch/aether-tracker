@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AETHER.TRACKER</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap');
+
+        :root {
+            --bg: #020617;
+            --navy: #0a192f;
+            --panel: rgba(16, 20, 35, 0.7);
+            --accent: #00d4ff;
+            --purp: #a855f7;
+            --rose: #f43f5e;
+            --border: rgba(255, 255, 255, 0.08);
+            --text: #f1f5f9;
+        }
+
+        * { box-sizing: border-box; transition: 0.3s ease; }
+
+        body, html {
+            margin: 0; padding: 0; height: 100vh; overflow: hidden;
+            font-family: 'Inter', sans-serif;
+            background: radial-gradient(circle at center, var(--navy) 0%, var(--bg) 100%);
+            color: var(--text);
+        }
+
+        .aether-grid {
+            display: grid;
+            grid-template-columns: 320px 1fr 320px;
+            grid-template-rows: 70px 1fr 1fr;
+            gap: 15px;
+            height: 100vh;
+            padding: 15px;
+        }
+
+        .glass-module {
+            background: var(--panel);
+            backdrop-filter: blur(15px);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .glass-module:hover { border-color: rgba(0, 212, 255, 0.3); }
+
+        /* Typography */
+        .sys-label { font-size: 0.6rem; text-transform: uppercase; letter-spacing: 2.5px; color: #64748b; margin-bottom: 12px; }
+        h1 { margin: 0; font-size: 1.4rem; font-weight: 600; color: var(--accent); }
+        
+        /* AI Header */
+        .aether-header { grid-column: 1 / -1; flex-direction: row; align-items: center; justify-content: space-between; padding: 0 25px; }
+        #aiFocus { font-size: 0.8rem; color: var(--text); opacity: 0.7; font-weight: 300; letter-spacing: 0.5px; }
+
+        /* Form styling */
+        input, textarea {
+            width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--border);
+            padding: 10px; border-radius: 8px; color: white; margin-bottom: 10px; outline: none;
+        }
+        input:focus { border-color: var(--accent); box-shadow: 0 0 10px rgba(0, 212, 255, 0.1); }
+
+        button {
+            width: 100%; padding: 12px; border: none; border-radius: 8px;
+            font-weight: 600; cursor: pointer; background: var(--accent); color: #020617;
+        }
+        button:hover { filter: brightness(1.2); transform: scale(1.02); }
+
+        /* Scrollers */
+        .scroller { flex-grow: 1; overflow-y: auto; padding-right: 8px; }
+        .scroller::-webkit-scrollbar { width: 3px; }
+        .scroller::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
+
+        .task-row {
+            display: flex; align-items: center; gap: 12px; padding: 10px 0;
+            border-bottom: 1px solid var(--border);
+        }
+        .task-row input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--accent); cursor: pointer; }
+
+        /* Diary Styling */
+        .diary-card { margin-bottom: 15px; padding: 10px; background: rgba(255,255,255,0.02); border-radius: 8px; border-left: 2px solid var(--purp); }
+        .diary-time { font-size: 0.6rem; color: var(--purp); margin-bottom: 4px; display: block; }
+        .diary-body { font-size: 0.85rem; line-height: 1.5; color: #cbd5e1; }
+
+        @media (max-width: 1100px) { .aether-grid { grid-template-columns: 1fr; overflow-y: auto; height: auto; } }
+    </style>
+</head>
+<body>
+
+<div class="aether-grid">
+    <header class="glass-module aether-header">
+        <div><h1>AETHER.TRACKER</h1></div>
+        <div id="aiFocus">...</div>
+        <div style="text-align: right;">
+            <div id="clock" style="font-size: 1.1rem; font-weight: 600;">00:00</div>
+            <div id="date" style="font-size: 0.6rem; letter-spacing: 1px; color: var(--accent);">DATE</div>
+        </div>
+    </header>
+
+    <aside class="glass-module" style="grid-row: 2 / 3;">
+        <span class="sys-label">Input Core</span>
+        <input type="number" id="s" placeholder="Study Hours">
+        <input type="number" id="g" placeholder="Gym Minutes">
+        <input type="number" id="d" placeholder="Diet Score (1-10)">
+        <button onclick="saveStats()">PUSH DATA</button>
+    </aside>
+
+    <aside class="glass-module" style="grid-row: 3 / 4;">
+        <span class="sys-label">Neural Log</span>
+        <textarea id="noteIn" style="flex-grow: 1;" placeholder="Draft entry..."></textarea>
+        <button onclick="saveDiary()" style="background: var(--purp); color: white; margin-top: 10px;">COMMIT TO ARCHIVE</button>
+    </aside>
+
+    <div style="grid-row: 2 / 4; display: grid; grid-template-rows: 1.2fr 1fr; gap: 15px;">
+        <section class="glass-module">
+            <span class="sys-label">Aether Pulse (Trend)</span>
+            <div style="flex-grow: 1;"><canvas id="aetherChart"></canvas></div>
+        </section>
+        <section class="glass-module">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <span class="sys-label">Active Objectives</span>
+                <div style="display: flex; gap: 5px;">
+                    <input type="text" id="tIn" placeholder="New objective..." style="margin:0; width: 160px;">
+                    <button onclick="addT()" style="width: 40px; padding: 0;">+</button>
+                </div>
+            </div>
+            <div class="scroller" id="tList"></div>
+        </section>
+    </div>
+
+    <aside class="glass-module" style="grid-row: 2 / 4;">
+        <span class="sys-label">Neural Archive</span>
+        <div class="scroller" id="diaryList"></div>
+        
+        <span class="sys-label" style="margin-top: 20px; color: var(--rose);">Carryover</span>
+        <div class="scroller" id="uList" style="max-height: 150px;"></div>
+        <button onclick="clearHistory()" style="background: transparent; color: var(--rose); border: 1px solid var(--rose); margin-top: 10px; font-size: 0.7rem;">PURGE DATA</button>
+    </aside>
+</div>
+
+<script>
+    const now = new Date();
+    const motivations = [
+        "System Check: Focus is the only objective today.",
+        "Aether Level: Optimal. Execute your tasks with precision.",
+        "The day is yours to define. Stay disciplined.",
+        "Neural state: Peak. Push beyond your previous limits.",
+        "Consistency is the ultimate competitive advantage.",
+        "Finish the mission. Leave nothing on the table.",
+        "Review data. Reflect on growth. Recalibrate for tomorrow."
+    ];
+
+    // UI Updates
+    document.getElementById('date').innerText = now.toLocaleDateString('en-US', { weekday: 'short', day: 'numeric', month: 'short' }).toUpperCase();
+    document.getElementById('aiFocus').innerText = "AI MOTIVATION: " + motivations[now.getDay()];
+    setInterval(() => {
+        const d = new Date();
+        document.getElementById('clock').innerText = d.getHours() + ":" + d.getMinutes().toString().padStart(2, '0');
+    }, 1000);
+
+    let db = JSON.parse(localStorage.getItem('aetherOS')) || {
+        day: now.toDateString(),
+        study: [0,0,0,0,0,0,0], gym: [0,0,0,0,0,0,0], diet: [0,0,0,0,0,0,0],
+        todos: [], undone: [], diary: []
+    };
+
+    if (db.day !== now.toDateString()) {
+        db.undone = [...db.undone, ...db.todos.filter(t => !t.done)];
+        db.todos = []; db.day = now.toDateString();
+        sync();
+    }
+
+    const chart = new Chart(document.getElementById('aetherChart'), {
+        type: 'line',
+        data: {
+            labels: ['M','T','W','T','F','S','S'],
+            datasets: [
+                { label: 'Study', data: db.study, borderColor: '#00d4ff', backgroundColor: 'rgba(0,212,255,0.05)', fill: true, tension: 0.4, pointRadius: 0 },
+                { label: 'Gym', data: db.gym, borderColor: '#a855f7', tension: 0.4, pointRadius: 0 },
+                { label: 'Diet', data: db.diet, borderColor: '#f43f5e', tension: 0.4, pointRadius: 0 }
+            ]
+        },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { display: false }, x: { grid: { display: false }, ticks: { color: '#475569' } } } }
+    });
+
+    function saveStats() {
+        const i = (now.getDay() + 6) % 7;
+        db.study[i] = parseFloat(document.getElementById('s').value) || 0;
+        db.gym[i] = parseFloat(document.getElementById('g').value) || 0;
+        db.diet[i] = parseFloat(document.getElementById('d').value) || 0;
+        sync(); chart.update();
+    }
+
+    function addT() {
+        const v = document.getElementById('tIn').value;
+        if(v) { db.todos.push({t: v, done: false}); document.getElementById('tIn').value=''; sync(); }
+    }
+
+    function saveDiary() {
+        const v = document.getElementById('noteIn').value;
+        if(v) {
+            db.diary.unshift({ stamp: new Date().toLocaleString([], {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'}), txt: v });
+            document.getElementById('noteIn').value = '';
+            sync();
+        }
+    }
+
+    function toggleT(i) { db.todos[i].done = !db.todos[i].done; sync(); }
+    function clearHistory() { if(confirm("Purge all archive data?")) { db.diary = []; db.undone = []; sync(); } }
+
+    function sync() {
+        localStorage.setItem('aetherOS', JSON.stringify(db));
+        render();
+    }
+
+    function render() {
+        document.getElementById('tList').innerHTML = db.todos.map((t, i) => `
+            <div class="task-row">
+                <input type="checkbox" ${t.done?'checked':''} onclick="toggleT(${i})">
+                <span style="${t.done?'text-decoration:line-through;opacity:0.3':''}">${t.t}</span>
+            </div>`).join('');
+
+        document.getElementById('diaryList').innerHTML = db.diary.map(e => `
+            <div class="diary-card">
+                <span class="diary-time">${e.stamp}</span>
+                <div class="diary-body">${e.txt}</div>
+            </div>`).join('');
+
+        document.getElementById('uList').innerHTML = db.undone.map(t => `<div class="task-row" style="opacity:0.5; border-left: 2px solid var(--rose); padding-left: 10px;"><span>${t.t}</span></div>`).join('');
+    }
+
+    render();
+</script>
+</body>
+</html>
